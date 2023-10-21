@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+"Show a visual diff between two STL files."
+
+import argparse
+import os
+import subprocess
+import sys
+import tempfile
+
+# When run from git you get these arguments:
+#     program_name path old-file old-hex old-mode new-file new-hex new-mode
+#
+# [
+#     '/home/seb/fabrication/bin/diffstl',
+#     'projects/programmable-power-supply/husb238/enclosure/enclosure-lid.stl',
+#     '/tmp/git-blob-Tfsy6e/enclosure-lid.stl',
+#     '85227db0e3a6d77cad95bb2aec1166afdb5af16b',
+#     '100644',
+#     'projects/programmable-power-supply/husb238/enclosure/enclosure-lid.stl',
+#     '0000000000000000000000000000000000000000',
+#     '100644'
+# ]
+
+if len(sys.argv) > 3:
+    # Probably called by git.
+    old_stl = sys.argv[2]
+    new_stl = sys.argv[5]
+
+else:
+    # Probably called by hand.
+    argparser = argparse.ArgumentParser(description=__doc__)
+    argparser.add_argument('OLDSTL', help="Old STL file.")
+    argparser.add_argument('NEWSTL', help="New STL file.")
+    args = argparser.parse_args()
+    old_stl = args.OLDSTL
+    new_stl = args.NEWSTL
+
+try:
+    temp_dir = tempfile.mkdtemp(prefix="diffstl.")
+
+    intersection_file = f"{temp_dir}/intersection.stl"
+    deleted_file = f"{temp_dir}/deleted.stl"
+    added_file = f"{temp_dir}/added.stl"
+
+    r = subprocess.run(
+        ['stl_boolean', '-a', old_stl, '-b', new_stl, '-i', intersection_file],
+        check=True,
+        capture_output=True
+    )
+
+    r = subprocess.run(
+        ['stl_boolean', '-a', old_stl, '-b', new_stl, '-d', deleted_file],
+        check=True,
+        capture_output=True
+    )
+
+    r = subprocess.run(
+        ['stl_boolean', '-a', new_stl, '-b', old_stl, '-d', added_file],
+        check=True,
+        capture_output=True
+    )
+
+except Exception as e:
+    print(e)
+    print(r)
+    raise
+
+old_viewer = subprocess.Popen(['fstl', old_stl])
+new_viewer = subprocess.Popen(['fstl', new_stl])
+
+intersection_viewer = subprocess.Popen(['fstl', intersection_file])
+deleted_viewer = subprocess.Popen(['fstl', deleted_file])
+added_viewer = subprocess.Popen(['fstl', added_file])
+
+old_viewer.wait()
+new_viewer.wait()
+
+intersection_viewer.wait()
+deleted_viewer.wait()
+added_viewer.wait()
+
+os.unlink(intersection_file)
+os.unlink(deleted_file)
+os.unlink(added_file)
+
+os.rmdir(temp_dir)
