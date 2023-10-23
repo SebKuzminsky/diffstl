@@ -36,6 +36,10 @@ else:
     old_stl = args.OLDSTL
     new_stl = args.NEWSTL
 
+print(f"old STL is {old_stl}")
+print(f"new STL is {new_stl}")
+sys.stdout.flush()
+
 try:
     temp_dir = tempfile.mkdtemp(prefix="diffstl.")
 
